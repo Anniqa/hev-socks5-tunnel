@@ -171,3 +171,71 @@ hev_udpgw_build_ipv4_frame (HevUdpGwConnMap *map, uint8_t *out,
 
     return res;
 }
+
+int
+hev_udpgw_sender_init (HevUdpGwSender *sender, int max_connections,
+                       HevUdpGwSendFunc send_func, void *user_data)
+{
+    if (!sender || !send_func)
+        return -1;
+
+    memset (sender, 0, sizeof (*sender));
+    if (hev_udpgw_conn_map_init (&sender->conn_map, max_connections) < 0)
+        return -1;
+
+    sender->send_func = send_func;
+    sender->user_data = user_data;
+    sender->open = 1;
+
+    return 0;
+}
+
+void
+hev_udpgw_sender_close (HevUdpGwSender *sender)
+{
+    if (!sender)
+        return;
+
+    hev_udpgw_conn_map_clear (&sender->conn_map);
+    sender->open = 0;
+}
+
+int
+hev_udpgw_sender_is_open (const HevUdpGwSender *sender)
+{
+    return sender && sender->open;
+}
+
+int
+hev_udpgw_sender_conn_count (const HevUdpGwSender *sender)
+{
+    if (!sender)
+        return 0;
+
+    return hev_udpgw_conn_map_size (&sender->conn_map);
+}
+
+int
+hev_udpgw_sender_send_ipv4 (HevUdpGwSender *sender, uint32_t dst_ip,
+                            uint16_t dst_port, const uint8_t *payload,
+                            size_t payload_len, int is_dns, int force_rebind)
+{
+    int frame_len;
+    int sent;
+
+    if (!sender || !sender->open || !sender->send_func)
+        return -1;
+
+    frame_len = hev_udpgw_build_ipv4_frame (
+        &sender->conn_map, sender->frame_buf, sizeof (sender->frame_buf), dst_ip,
+        dst_port, payload, payload_len, is_dns, force_rebind);
+    if (frame_len < 0)
+        return frame_len;
+
+    sent = sender->send_func (sender->frame_buf, (size_t)frame_len,
+                              sender->user_data);
+    if (sent < 0)
+        return sent;
+
+    return frame_len;
+}
