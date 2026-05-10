@@ -61,6 +61,20 @@ typedef struct _HevUdpGwSender
     int open;
 } HevUdpGwSender;
 
+typedef struct _HevUdpGwSessionConfig
+{
+    int max_connections;
+    int transparent_dns;
+} HevUdpGwSessionConfig;
+
+typedef struct _HevUdpGwSession
+{
+    HevUdpGwTransport transport;
+    HevUdpGwSender sender;
+    HevUdpGwSessionConfig config;
+    int open;
+} HevUdpGwSession;
+
 int hev_udpgw_session_is_enabled (void);
 HevConfigUdpGw *hev_udpgw_session_get_config (void);
 
@@ -95,5 +109,16 @@ void hev_udpgw_transport_close (HevUdpGwTransport *transport);
 int hev_udpgw_transport_is_open (const HevUdpGwTransport *transport);
 int hev_udpgw_transport_send (const uint8_t *frame, size_t frame_len,
                               void *user_data);
+
+int hev_udpgw_session_init (HevUdpGwSession *session,
+                            const HevUdpGwSessionConfig *config,
+                            const HevUdpGwTransportOps *ops, void *user_data);
+void hev_udpgw_session_close (HevUdpGwSession *session);
+int hev_udpgw_session_is_open (const HevUdpGwSession *session);
+int hev_udpgw_session_conn_count (const HevUdpGwSession *session);
+int hev_udpgw_session_send_ipv4 (HevUdpGwSession *session, uint32_t dst_ip,
+                                 uint16_t dst_port, const uint8_t *payload,
+                                 size_t payload_len, int is_dns,
+                                 int force_rebind);
 
 #endif /* __HEV_UDPGW_SESSION_H__ */

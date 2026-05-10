@@ -292,3 +292,76 @@ hev_udpgw_transport_send (const uint8_t *frame, size_t frame_len,
     return transport->ops.send (transport->handle, frame, frame_len,
                                 transport->user_data);
 }
+
+int
+hev_udpgw_session_init (HevUdpGwSession *session,
+                        const HevUdpGwSessionConfig *config,
+                        const HevUdpGwTransportOps *ops, void *user_data)
+{
+    HevUdpGwSessionConfig cfg;
+
+    if (!session || !ops)
+        return -1;
+
+    memset (session, 0, sizeof (*session));
+    if (config)
+        cfg = *config;
+    else
+        memset (&cfg, 0, sizeof (cfg));
+
+    if (cfg.max_connections <= 0)
+        cfg.max_connections = HEV_UDPGW_CONN_MAP_CAPACITY;
+
+    if (hev_udpgw_transport_init (&session->transport, ops, user_data) < 0)
+        return -1;
+    if (hev_udpgw_sender_init (&session->sender, cfg.max_connections,
+                               hev_udpgw_transport_send,
+                               &session->transport) < 0) {
+        hev_udpgw_transport_close (&session->transport);
+        return -1;
+    }
+
+    session->config = cfg;
+    session->open = 1;
+
+    return 0;
+}
+
+void
+hev_udpgw_session_close (HevUdpGwSession *session)
+{
+    if (!session || !session->open)
+        return;
+
+    hev_udpgw_sender_close (&session->sender);
+    hev_udpgw_transport_close (&session->transport);
+    session->open = 0;
+}
+
+int
+hev_udpgw_session_is_open (const HevUdpGwSession *session)
+{
+    return session && session->open;
+}
+
+int
+hev_udpgw_session_conn_count (const HevUdpGwSession *session)
+{
+    if (!session)
+        return 0;
+
+    return hev_udpgw_sender_conn_count (&session->sender);
+}
+
+int
+hev_udpgw_session_send_ipv4 (HevUdpGwSession *session, uint32_t dst_ip,
+                             uint16_t dst_port, const uint8_t *payload,
+                             size_t payload_len, int is_dns, int force_rebind)
+{
+    if (!session || !session->open)
+        return -1;
+
+    return hev_udpgw_sender_send_ipv4 (&session->sender, dst_ip, dst_port,
+                                       payload, payload_len, is_dns,
+                                       force_rebind);
+}
