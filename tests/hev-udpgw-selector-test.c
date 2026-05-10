@@ -30,6 +30,7 @@ main (void)
         return 1;
 
     cfg.enabled = 1;
+    cfg.experimental_hev = 1;
     if (expect_int ("enabled without address", hev_udpgw_session_should_handle_udp (), 0))
         return 1;
 
@@ -38,9 +39,14 @@ main (void)
         return 1;
 
     cfg.port = 7300;
-    if (expect_int ("enabled with address and port", hev_udpgw_session_should_handle_udp (), 1))
+    if (expect_int ("enabled with explicit experimental gate", hev_udpgw_session_should_handle_udp (), 1))
         return 1;
 
+    cfg.experimental_hev = 0;
+    if (expect_int ("enabled without explicit experimental gate", hev_udpgw_session_should_handle_udp (), 0))
+        return 1;
+
+    cfg.experimental_hev = 1;
     cfg.enabled = 0;
     if (expect_int ("disabled with address and port", hev_udpgw_session_should_handle_udp (), 0))
         return 1;

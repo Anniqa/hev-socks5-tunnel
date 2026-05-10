@@ -20,6 +20,7 @@ struct _HevConfigUdpGw
     int max_connections;
     int connection_buffer_size;
     unsigned char transparent_dns;
+    unsigned char experimental_hev;
     char addr[256];
 };
 

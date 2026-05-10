@@ -310,6 +310,9 @@ hev_config_parse_udpgw (yaml_document_t *doc, yaml_node_t *base)
             udpgw_srv.connection_buffer_size = strtol (value, NULL, 10);
         else if (0 == strcmp (key, "transparent-dns"))
             udpgw_srv.transparent_dns = (0 == strcasecmp (value, "true")) ? 1 : 0;
+        else if (0 == strcmp (key, "experimental-hev"))
+            udpgw_srv.experimental_hev =
+                (0 == strcasecmp (value, "true")) ? 1 : 0;
     }
 
     if (udpgw_srv.enabled && !udpgw_srv.addr[0])
