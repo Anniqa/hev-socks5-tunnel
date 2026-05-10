@@ -77,6 +77,25 @@ hev_udpgw_inbound_from_frame (const uint8_t *frame, size_t frame_len,
 }
 
 int
+hev_udpgw_dispatch_inbound_frame (const uint8_t *frame, size_t frame_len,
+                                  HevUdpGwReplyFunc reply_func,
+                                  void *user_data)
+{
+    HevUdpGwInbound inbound;
+    int res;
+
+    if (!reply_func)
+        return -1;
+
+    res = hev_udpgw_inbound_from_frame (frame, frame_len, &inbound);
+    if (res < 0)
+        return res;
+
+    return reply_func (inbound.src_ip, inbound.src_port, inbound.payload,
+                       inbound.payload_len, user_data);
+}
+
+int
 hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections)
 {
     if (!map)

@@ -35,6 +35,9 @@ typedef struct _HevUdpGwConnMap
 
 typedef int (*HevUdpGwSendFunc) (const uint8_t *frame, size_t frame_len,
                                  void *user_data);
+typedef int (*HevUdpGwReplyFunc) (uint32_t src_ip, uint16_t src_port,
+                                  const uint8_t *payload, size_t payload_len,
+                                  void *user_data);
 
 typedef struct _HevUdpGwTransportOps
 {
@@ -98,6 +101,9 @@ int hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
                                     HevUdpGwEndpoint *endpoint);
 int hev_udpgw_inbound_from_frame (const uint8_t *frame, size_t frame_len,
                                   HevUdpGwInbound *inbound);
+int hev_udpgw_dispatch_inbound_frame (const uint8_t *frame, size_t frame_len,
+                                      HevUdpGwReplyFunc reply_func,
+                                      void *user_data);
 
 int hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections);
 void hev_udpgw_conn_map_clear (HevUdpGwConnMap *map);
