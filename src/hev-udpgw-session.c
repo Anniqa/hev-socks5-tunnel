@@ -35,6 +35,21 @@ hev_udpgw_session_get_config (void)
 }
 
 int
+hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
+                                HevUdpGwEndpoint *endpoint)
+{
+    if (!config || !endpoint || !config->enabled || !config->addr[0] ||
+        !config->port)
+        return -1;
+
+    memset (endpoint, 0, sizeof (*endpoint));
+    strncpy (endpoint->addr, config->addr, sizeof (endpoint->addr) - 1);
+    endpoint->port = config->port;
+
+    return 0;
+}
+
+int
 hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections)
 {
     if (!map)

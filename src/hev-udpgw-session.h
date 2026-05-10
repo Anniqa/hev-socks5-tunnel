@@ -52,6 +52,12 @@ typedef struct _HevUdpGwTransport
     int open;
 } HevUdpGwTransport;
 
+typedef struct _HevUdpGwEndpoint
+{
+    char addr[256];
+    unsigned short port;
+} HevUdpGwEndpoint;
+
 typedef struct _HevUdpGwSender
 {
     HevUdpGwConnMap conn_map;
@@ -78,6 +84,8 @@ typedef struct _HevUdpGwSession
 int hev_udpgw_session_is_enabled (void);
 int hev_udpgw_session_should_handle_udp (void);
 HevConfigUdpGw *hev_udpgw_session_get_config (void);
+int hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
+                                    HevUdpGwEndpoint *endpoint);
 
 int hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections);
 void hev_udpgw_conn_map_clear (HevUdpGwConnMap *map);
