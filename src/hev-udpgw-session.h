@@ -9,6 +9,7 @@
 #ifndef __HEV_UDPGW_SESSION_H__
 #define __HEV_UDPGW_SESSION_H__
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "hev-config.h"
@@ -43,5 +44,10 @@ HevUdpGwConn *hev_udpgw_conn_map_get_or_create (HevUdpGwConnMap *map,
                                                 uint16_t dst_port,
                                                 int force_rebind);
 void hev_udpgw_conn_mark_sent (HevUdpGwConn *conn);
+int hev_udpgw_build_ipv4_frame (HevUdpGwConnMap *map, uint8_t *out,
+                                size_t out_len, uint32_t dst_ip,
+                                uint16_t dst_port, const uint8_t *payload,
+                                size_t payload_len, int is_dns,
+                                int force_rebind);
 
 #endif /* __HEV_UDPGW_SESSION_H__ */

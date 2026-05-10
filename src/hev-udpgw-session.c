@@ -138,3 +138,36 @@ hev_udpgw_conn_mark_sent (HevUdpGwConn *conn)
 
     conn->needs_rebind = 0;
 }
+
+int
+hev_udpgw_build_ipv4_frame (HevUdpGwConnMap *map, uint8_t *out,
+                            size_t out_len, uint32_t dst_ip,
+                            uint16_t dst_port, const uint8_t *payload,
+                            size_t payload_len, int is_dns, int force_rebind)
+{
+    HevUdpGwConn *conn;
+    uint8_t flags = 0;
+    int was_size;
+    int res;
+
+    if (!map)
+        return -1;
+
+    was_size = map->size;
+    conn = hev_udpgw_conn_map_get_or_create (map, dst_ip, dst_port,
+                                             force_rebind);
+    if (!conn)
+        return -1;
+
+    if (is_dns)
+        flags |= HEV_UDPGW_CLIENT_FLAG_DNS;
+    if (conn->needs_rebind || map->size > was_size)
+        flags |= HEV_UDPGW_CLIENT_FLAG_REBIND;
+
+    res = hev_udpgw_encode_ipv4 (out, out_len, conn->conid, flags, dst_ip,
+                                 dst_port, payload, payload_len);
+    if (res >= 0)
+        hev_udpgw_conn_mark_sent (conn);
+
+    return res;
+}
