@@ -50,6 +50,33 @@ hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
 }
 
 int
+hev_udpgw_inbound_from_frame (const uint8_t *frame, size_t frame_len,
+                              HevUdpGwInbound *inbound)
+{
+    const HevUdpGwHeader *header;
+    const HevUdpGwAddrIpv4 *addr;
+
+    if (!frame || !inbound || frame_len < HEV_UDPGW_IPV4_HEADER_SIZE)
+        return -1;
+
+    header = (const HevUdpGwHeader *)frame;
+    if ((header->flags & HEV_UDPGW_CLIENT_FLAG_IPV6) != 0)
+        return -1;
+
+    addr = (const HevUdpGwAddrIpv4 *)(frame + sizeof (HevUdpGwHeader));
+
+    memset (inbound, 0, sizeof (*inbound));
+    inbound->conid = hev_udpgw_read_u16 (&header->conid);
+    inbound->flags = header->flags;
+    memcpy (&inbound->src_ip, &addr->addr_ip, sizeof (inbound->src_ip));
+    memcpy (&inbound->src_port, &addr->addr_port, sizeof (inbound->src_port));
+    inbound->payload = frame + HEV_UDPGW_IPV4_HEADER_SIZE;
+    inbound->payload_len = frame_len - HEV_UDPGW_IPV4_HEADER_SIZE;
+
+    return 0;
+}
+
+int
 hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections)
 {
     if (!map)
