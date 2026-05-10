@@ -96,6 +96,43 @@ hev_udpgw_dispatch_inbound_frame (const uint8_t *frame, size_t frame_len,
 }
 
 int
+hev_udpgw_lwip_reply_init (HevUdpGwLwipReply *reply,
+                           const HevUdpGwLwipReplyOps *ops, void *user_data)
+{
+    if (!reply || !ops || !ops->send)
+        return -1;
+
+    memset (reply, 0, sizeof (*reply));
+    reply->ops = *ops;
+    reply->user_data = user_data;
+
+    return 0;
+}
+
+int
+hev_udpgw_lwip_reply_dispatch (uint32_t src_ip, uint16_t src_port,
+                               const uint8_t *payload, size_t payload_len,
+                               void *user_data)
+{
+    HevUdpGwLwipReply *reply = user_data;
+    int res;
+
+    if (!reply || !reply->ops.send)
+        return -1;
+
+    if (reply->ops.lock)
+        reply->ops.lock (reply->user_data);
+
+    res = reply->ops.send (src_ip, src_port, payload, payload_len,
+                           reply->user_data);
+
+    if (reply->ops.unlock)
+        reply->ops.unlock (reply->user_data);
+
+    return res;
+}
+
+int
 hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections)
 {
     if (!map)

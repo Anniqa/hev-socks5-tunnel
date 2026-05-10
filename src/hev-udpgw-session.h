@@ -71,6 +71,20 @@ typedef struct _HevUdpGwInbound
     size_t payload_len;
 } HevUdpGwInbound;
 
+typedef struct _HevUdpGwLwipReplyOps
+{
+    void (*lock) (void *user_data);
+    int (*send) (uint32_t src_ip, uint16_t src_port, const uint8_t *payload,
+                 size_t payload_len, void *user_data);
+    void (*unlock) (void *user_data);
+} HevUdpGwLwipReplyOps;
+
+typedef struct _HevUdpGwLwipReply
+{
+    HevUdpGwLwipReplyOps ops;
+    void *user_data;
+} HevUdpGwLwipReply;
+
 typedef struct _HevUdpGwSender
 {
     HevUdpGwConnMap conn_map;
@@ -104,6 +118,12 @@ int hev_udpgw_inbound_from_frame (const uint8_t *frame, size_t frame_len,
 int hev_udpgw_dispatch_inbound_frame (const uint8_t *frame, size_t frame_len,
                                       HevUdpGwReplyFunc reply_func,
                                       void *user_data);
+int hev_udpgw_lwip_reply_init (HevUdpGwLwipReply *reply,
+                               const HevUdpGwLwipReplyOps *ops,
+                               void *user_data);
+int hev_udpgw_lwip_reply_dispatch (uint32_t src_ip, uint16_t src_port,
+                                   const uint8_t *payload, size_t payload_len,
+                                   void *user_data);
 
 int hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections);
 void hev_udpgw_conn_map_clear (HevUdpGwConnMap *map);
