@@ -239,3 +239,56 @@ hev_udpgw_sender_send_ipv4 (HevUdpGwSender *sender, uint32_t dst_ip,
 
     return frame_len;
 }
+
+int
+hev_udpgw_transport_init (HevUdpGwTransport *transport,
+                          const HevUdpGwTransportOps *ops, void *user_data)
+{
+    int handle;
+
+    if (!transport || !ops || !ops->open || !ops->send)
+        return -1;
+
+    memset (transport, 0, sizeof (*transport));
+    handle = ops->open (user_data);
+    if (handle < 0)
+        return handle;
+
+    transport->ops = *ops;
+    transport->user_data = user_data;
+    transport->handle = handle;
+    transport->open = 1;
+
+    return 0;
+}
+
+void
+hev_udpgw_transport_close (HevUdpGwTransport *transport)
+{
+    if (!transport || !transport->open)
+        return;
+
+    if (transport->ops.close)
+        transport->ops.close (transport->handle, transport->user_data);
+    transport->open = 0;
+    transport->handle = -1;
+}
+
+int
+hev_udpgw_transport_is_open (const HevUdpGwTransport *transport)
+{
+    return transport && transport->open;
+}
+
+int
+hev_udpgw_transport_send (const uint8_t *frame, size_t frame_len,
+                          void *user_data)
+{
+    HevUdpGwTransport *transport = user_data;
+
+    if (!transport || !transport->open || !transport->ops.send)
+        return -1;
+
+    return transport->ops.send (transport->handle, frame, frame_len,
+                                transport->user_data);
+}

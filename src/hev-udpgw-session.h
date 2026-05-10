@@ -36,6 +36,22 @@ typedef struct _HevUdpGwConnMap
 typedef int (*HevUdpGwSendFunc) (const uint8_t *frame, size_t frame_len,
                                  void *user_data);
 
+typedef struct _HevUdpGwTransportOps
+{
+    int (*open) (void *user_data);
+    int (*send) (int handle, const uint8_t *frame, size_t frame_len,
+                 void *user_data);
+    void (*close) (int handle, void *user_data);
+} HevUdpGwTransportOps;
+
+typedef struct _HevUdpGwTransport
+{
+    HevUdpGwTransportOps ops;
+    void *user_data;
+    int handle;
+    int open;
+} HevUdpGwTransport;
+
 typedef struct _HevUdpGwSender
 {
     HevUdpGwConnMap conn_map;
@@ -71,5 +87,13 @@ int hev_udpgw_sender_send_ipv4 (HevUdpGwSender *sender, uint32_t dst_ip,
                                 uint16_t dst_port, const uint8_t *payload,
                                 size_t payload_len, int is_dns,
                                 int force_rebind);
+
+int hev_udpgw_transport_init (HevUdpGwTransport *transport,
+                              const HevUdpGwTransportOps *ops,
+                              void *user_data);
+void hev_udpgw_transport_close (HevUdpGwTransport *transport);
+int hev_udpgw_transport_is_open (const HevUdpGwTransport *transport);
+int hev_udpgw_transport_send (const uint8_t *frame, size_t frame_len,
+                              void *user_data);
 
 #endif /* __HEV_UDPGW_SESSION_H__ */
