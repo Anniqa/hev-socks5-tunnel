@@ -76,6 +76,7 @@ typedef struct _HevUdpGwSession
 } HevUdpGwSession;
 
 int hev_udpgw_session_is_enabled (void);
+int hev_udpgw_session_should_handle_udp (void);
 HevConfigUdpGw *hev_udpgw_session_get_config (void);
 
 int hev_udpgw_conn_map_init (HevUdpGwConnMap *map, int max_connections);

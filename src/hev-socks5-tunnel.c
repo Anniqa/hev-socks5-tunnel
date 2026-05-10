@@ -36,6 +36,7 @@
 #include "hev-config-const.h"
 #include "hev-socks5-session-tcp.h"
 #include "hev-socks5-session-udp.h"
+#include "hev-udpgw-session.h"
 
 #include "hev-socks5-tunnel.h"
 
@@ -246,6 +247,10 @@ udp_recv_handler (void *arg, struct udp_pcb *pcb, struct pbuf *p,
             udp_recv (pcb, dns_recv_handler, dns);
             return;
         }
+    }
+
+    if (hev_udpgw_session_should_handle_udp ()) {
+        LOG_W ("UDPGW HEV runtime selector enabled, using legacy SOCKS5 UDP fallback");
     }
 
     udp = hev_socks5_session_udp_new (pcb, &mutex);

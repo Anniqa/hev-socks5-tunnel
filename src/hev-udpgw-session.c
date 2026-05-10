@@ -20,6 +20,14 @@ hev_udpgw_session_is_enabled (void)
     return cfg && cfg->enabled;
 }
 
+int
+hev_udpgw_session_should_handle_udp (void)
+{
+    HevConfigUdpGw *cfg = hev_config_get_udpgw_server ();
+
+    return cfg && cfg->enabled && cfg->addr[0] && cfg->port;
+}
+
 HevConfigUdpGw *
 hev_udpgw_session_get_config (void)
 {
