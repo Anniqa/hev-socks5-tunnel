@@ -11,6 +11,17 @@
 #define __HEV_CONFIG_H__
 
 typedef struct _HevConfigServer HevConfigServer;
+typedef struct _HevConfigUdpGw HevConfigUdpGw;
+
+struct _HevConfigUdpGw
+{
+    unsigned char enabled;
+    unsigned short port;
+    int max_connections;
+    int connection_buffer_size;
+    unsigned char transparent_dns;
+    char addr[256];
+};
 
 struct _HevConfigServer
 {
@@ -41,6 +52,7 @@ const char *hev_config_get_tunnel_post_up_script (void);
 const char *hev_config_get_tunnel_pre_down_script (void);
 
 HevConfigServer *hev_config_get_socks5_server (void);
+HevConfigUdpGw *hev_config_get_udpgw_server (void);
 
 int hev_config_get_mapdns_address (void);
 int hev_config_get_mapdns_port (void);

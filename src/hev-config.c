@@ -28,6 +28,11 @@ static char tun_post_up_script[1024];
 static char tun_pre_down_script[1024];
 
 static HevConfigServer srv;
+static HevConfigUdpGw udpgw_srv = {
+    .port = 7300,
+    .max_connections = 512,
+    .connection_buffer_size = 64,
+};
 
 static int mapdns_address;
 static int mapdns_port;
@@ -268,6 +273,58 @@ hev_config_parse_socks5 (yaml_document_t *doc, yaml_node_t *base)
 }
 
 static int
+hev_config_parse_udpgw (yaml_document_t *doc, yaml_node_t *base)
+{
+    yaml_node_pair_t *pair;
+
+    if (!base || YAML_MAPPING_NODE != base->type)
+        return -1;
+
+    for (pair = base->data.mapping.pairs.start;
+         pair < base->data.mapping.pairs.top; pair++) {
+        yaml_node_t *node;
+        const char *key, *value;
+
+        if (!pair->key || !pair->value)
+            break;
+
+        node = yaml_document_get_node (doc, pair->key);
+        if (!node || YAML_SCALAR_NODE != node->type)
+            break;
+        key = (const char *)node->data.scalar.value;
+
+        node = yaml_document_get_node (doc, pair->value);
+        if (!node || YAML_SCALAR_NODE != node->type)
+            break;
+        value = (const char *)node->data.scalar.value;
+
+        if (0 == strcmp (key, "enabled"))
+            udpgw_srv.enabled = (0 == strcasecmp (value, "true")) ? 1 : 0;
+        else if (0 == strcmp (key, "address"))
+            strncpy (udpgw_srv.addr, value, 256 - 1);
+        else if (0 == strcmp (key, "port"))
+            udpgw_srv.port = strtoul (value, NULL, 10);
+        else if (0 == strcmp (key, "max-connections"))
+            udpgw_srv.max_connections = strtol (value, NULL, 10);
+        else if (0 == strcmp (key, "connection-buffer-size"))
+            udpgw_srv.connection_buffer_size = strtol (value, NULL, 10);
+        else if (0 == strcmp (key, "transparent-dns"))
+            udpgw_srv.transparent_dns = (0 == strcasecmp (value, "true")) ? 1 : 0;
+    }
+
+    if (udpgw_srv.enabled && !udpgw_srv.addr[0])
+        strncpy (udpgw_srv.addr, "127.0.0.1", 256 - 1);
+    if (udpgw_srv.port == 0)
+        udpgw_srv.port = 7300;
+    if (udpgw_srv.max_connections <= 0)
+        udpgw_srv.max_connections = 512;
+    if (udpgw_srv.connection_buffer_size <= 0)
+        udpgw_srv.connection_buffer_size = 64;
+
+    return 0;
+}
+
+static int
 hev_config_parse_mapdns (yaml_document_t *doc, yaml_node_t *base)
 {
     yaml_node_pair_t *pair;
@@ -426,6 +483,8 @@ hev_config_parse_doc (yaml_document_t *doc)
             res = hev_config_parse_tunnel (doc, node);
         else if (0 == strcmp (key, "socks5"))
             res = hev_config_parse_socks5 (doc, node);
+        else if (0 == strcmp (key, "udpgw"))
+            res = hev_config_parse_udpgw (doc, node);
         else if (0 == strcmp (key, "mapdns"))
             res = hev_config_parse_mapdns (doc, node);
         else if (0 == strcmp (key, "misc"))
@@ -577,6 +636,12 @@ HevConfigServer *
 hev_config_get_socks5_server (void)
 {
     return &srv;
+}
+
+HevConfigUdpGw *
+hev_config_get_udpgw_server (void)
+{
+    return &udpgw_srv;
 }
 
 int
