@@ -108,9 +108,17 @@ typedef struct _HevUdpGwSession
     int open;
 } HevUdpGwSession;
 
+typedef struct _HevUdpGwRuntimeConfig
+{
+    HevUdpGwEndpoint endpoint;
+    HevUdpGwSessionConfig session;
+    int connection_buffer_size;
+} HevUdpGwRuntimeConfig;
+
 int hev_udpgw_session_is_enabled (void);
 int hev_udpgw_session_should_handle_udp (void);
 HevConfigUdpGw *hev_udpgw_session_get_config (void);
+int hev_udpgw_runtime_config_from_current (HevUdpGwRuntimeConfig *runtime);
 int hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
                                     HevUdpGwEndpoint *endpoint);
 int hev_udpgw_inbound_from_frame (const uint8_t *frame, size_t frame_len,

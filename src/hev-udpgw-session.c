@@ -36,6 +36,30 @@ hev_udpgw_session_get_config (void)
 }
 
 int
+hev_udpgw_runtime_config_from_current (HevUdpGwRuntimeConfig *runtime)
+{
+    HevConfigUdpGw *cfg = hev_config_get_udpgw_server ();
+
+    if (!runtime || !hev_udpgw_session_should_handle_udp ())
+        return -1;
+
+    memset (runtime, 0, sizeof (*runtime));
+    if (hev_udpgw_endpoint_from_config (cfg, &runtime->endpoint) < 0)
+        return -1;
+
+    runtime->session.max_connections = cfg->max_connections;
+    if (runtime->session.max_connections <= 0 ||
+        runtime->session.max_connections > HEV_UDPGW_CONN_MAP_CAPACITY)
+        runtime->session.max_connections = HEV_UDPGW_CONN_MAP_CAPACITY;
+    runtime->session.transparent_dns = cfg->transparent_dns ? 1 : 0;
+    runtime->connection_buffer_size = cfg->connection_buffer_size > 0 ?
+                                          cfg->connection_buffer_size :
+                                          64;
+
+    return 0;
+}
+
+int
 hev_udpgw_endpoint_from_config (const HevConfigUdpGw *config,
                                 HevUdpGwEndpoint *endpoint)
 {

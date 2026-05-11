@@ -11,6 +11,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <string.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 
 #include <lwip/tcp.h>
@@ -23,6 +26,7 @@
 
 #include <hev-task.h>
 #include <hev-task-io.h>
+#include <hev-task-io-socket.h>
 #include <hev-task-mutex.h>
 #include <hev-task-system.h>
 #include <hev-memory-allocator.h>
@@ -224,6 +228,154 @@ exit:
     udp_remove (pcb);
 }
 
+static int
+udpgw_runtime_open (void *user_data)
+{
+    HevUdpGwRuntimeConfig *cfg = user_data;
+    struct sockaddr_in saddr;
+    int fd;
+
+    if (!cfg)
+        return -1;
+
+    fd = hev_task_io_socket_socket (AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0)
+        return -1;
+
+    memset (&saddr, 0, sizeof (saddr));
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons (cfg->endpoint.port);
+    if (inet_pton (AF_INET, cfg->endpoint.addr, &saddr.sin_addr) != 1) {
+        close (fd);
+        return -1;
+    }
+
+    if (hev_task_io_socket_connect (fd, (struct sockaddr *)&saddr,
+                                    sizeof (saddr), task_io_yielder,
+                                    NULL) < 0) {
+        close (fd);
+        return -1;
+    }
+
+    return fd;
+}
+
+static int
+udpgw_runtime_send (int handle, const uint8_t *frame, size_t frame_len,
+                    void *user_data)
+{
+    ssize_t sent;
+
+    if (handle < 0 || !frame || !frame_len)
+        return -1;
+
+    sent = hev_task_io_socket_send (handle, frame, frame_len, MSG_WAITALL,
+                                    task_io_yielder, NULL);
+    if (sent != (ssize_t)frame_len)
+        return -1;
+
+    return 0;
+}
+
+static void
+udpgw_runtime_close (int handle, void *user_data)
+{
+    if (handle >= 0) {
+        hev_task_del_fd (hev_task_self (), handle);
+        close (handle);
+    }
+}
+
+static int
+udpgw_lwip_send (uint32_t src_ip, uint16_t src_port, const uint8_t *payload,
+                 size_t payload_len, void *user_data)
+{
+    struct udp_pcb *pcb = user_data;
+    ip_addr_t saddr;
+    struct pbuf *buf;
+    err_t err;
+
+    if (!pcb || !payload || !payload_len)
+        return -1;
+
+    ip_2_ip4 (&saddr)->addr = src_ip;
+    buf = pbuf_alloc_reference ((void *)payload, payload_len, PBUF_REF);
+    if (!buf)
+        return -1;
+
+    err = udp_sendfrom (pcb, buf, &saddr, src_port);
+    pbuf_free (buf);
+
+    return err == ERR_OK ? 0 : -1;
+}
+
+static void
+udpgw_lwip_lock (void *user_data)
+{
+    hev_task_mutex_lock (&mutex);
+}
+
+static void
+udpgw_lwip_unlock (void *user_data)
+{
+    hev_task_mutex_unlock (&mutex);
+}
+
+static int
+udpgw_ipv4_from_lwip (const ip_addr_t *addr, uint16_t port, uint32_t *dst_ip,
+                      uint16_t *dst_port)
+{
+    if (!addr || !dst_ip || !dst_port || addr->type != IPADDR_TYPE_V4)
+        return -1;
+
+    *dst_ip = ip_2_ip4 (addr)->addr;
+    *dst_port = port;
+    return 0;
+}
+
+static int
+udpgw_handle_first_packet (struct udp_pcb *pcb, struct pbuf *p,
+                           const ip_addr_t *addr, u16_t port)
+{
+    HevUdpGwTransportOps transport_ops;
+    HevUdpGwLwipReplyOps reply_ops;
+    HevUdpGwRuntimeConfig runtime;
+    HevUdpGwLwipReply reply;
+    HevUdpGwSession session;
+    uint32_t dst_ip;
+    uint16_t dst_port;
+    int res = -1;
+
+    if (!p || udpgw_ipv4_from_lwip (addr, port, &dst_ip, &dst_port) < 0)
+        return -1;
+    if (hev_udpgw_runtime_config_from_current (&runtime) < 0)
+        return -1;
+
+    memset (&transport_ops, 0, sizeof (transport_ops));
+    transport_ops.open = udpgw_runtime_open;
+    transport_ops.send = udpgw_runtime_send;
+    transport_ops.close = udpgw_runtime_close;
+
+    if (hev_udpgw_session_init (&session, &runtime.session, &transport_ops,
+                                &runtime) < 0)
+        return -1;
+
+    memset (&reply_ops, 0, sizeof (reply_ops));
+    reply_ops.lock = udpgw_lwip_lock;
+    reply_ops.send = udpgw_lwip_send;
+    reply_ops.unlock = udpgw_lwip_unlock;
+    if (hev_udpgw_lwip_reply_init (&reply, &reply_ops, pcb) < 0)
+        goto exit;
+
+    LOG_W ("UDPGW HEV experimental legacy session handling first IPv4 packet");
+    res = hev_udpgw_session_send_ipv4 (&session, dst_ip, dst_port, p->payload,
+                                       p->len, 0, 0);
+
+exit:
+    hev_udpgw_session_close (&session);
+    return res < 0 ? -1 : 0;
+}
+
 static void
 udp_recv_handler (void *arg, struct udp_pcb *pcb, struct pbuf *p,
                   const ip_addr_t *addr, u16_t port)
@@ -250,7 +402,13 @@ udp_recv_handler (void *arg, struct udp_pcb *pcb, struct pbuf *p,
     }
 
     if (hev_udpgw_session_should_handle_udp ()) {
-        LOG_W ("UDPGW HEV runtime selector enabled, using legacy SOCKS5 UDP fallback");
+        if (udpgw_handle_first_packet (pcb, p, addr, port) == 0) {
+            pbuf_free (p);
+            udp_recv (pcb, NULL, NULL);
+            udp_remove (pcb);
+            return;
+        }
+        LOG_W ("UDPGW HEV experimental first packet failed, using legacy SOCKS5 UDP fallback");
     }
 
     udp = hev_socks5_session_udp_new (pcb, &mutex);
